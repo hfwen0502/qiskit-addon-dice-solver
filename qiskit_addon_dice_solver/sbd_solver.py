@@ -95,7 +95,7 @@ def solve_sci(
 
     try:
         # === TIMING: Setup phase ===
-        t_setup_start = time.time()
+        #t_setup_start = time.time()
         
         # Write the integrals out as an FCI dump for SBD
         fcidump_path = sbd_dir / "fcidump.txt"
@@ -113,11 +113,11 @@ def solve_sci(
         # (SaveMatrixFormWF in restart.h checks extension: .bin → raw doubles, .txt → slow text)
         wf_dump_file = sbd_dir / "wavefunction.bin"
         
-        t_setup_end = time.time()
-        print(f"[SBD Timing] Setup (write files): {t_setup_end - t_setup_start:.4f} sec")
+        #t_setup_end = time.time()
+        #print(f"[SBD Timing] Setup (write files): {t_setup_end - t_setup_start:.4f} sec")
 
         # === TIMING: SBD solver execution ===
-        t_sbd_start = time.time()
+        #t_sbd_start = time.time()
         
         # Call SBD executable
         _call_sbd(
@@ -130,20 +130,20 @@ def solve_sci(
             wf_dump_file=wf_dump_file,
         )
         
-        t_sbd_end = time.time()
-        print(f"[SBD Timing] SBD solver execution: {t_sbd_end - t_sbd_start:.4f} sec")
+        #t_sbd_end = time.time()
+        #print(f"[SBD Timing] SBD solver execution: {t_sbd_end - t_sbd_start:.4f} sec")
 
         # === TIMING: Read outputs ===
-        t_read_start = time.time()
+        #t_read_start = time.time()
         
         # Read and convert outputs
         energy, sci_state, occupancies = _read_sbd_outputs(
             sbd_dir, norb, nelec, carryover_adet_file, carryover_bdet_file, wf_dump_file
         )
         
-        t_read_end = time.time()
-        print(f"[SBD Timing] Read outputs: {t_read_end - t_read_start:.4f} sec")
-        print(f"[SBD Timing] Total: {t_read_end - t_setup_start:.4f} sec")
+        #t_read_end = time.time()
+        #print(f"[SBD Timing] Read outputs: {t_read_end - t_read_start:.4f} sec")
+        #print(f"[SBD Timing] Total: {t_read_end - t_setup_start:.4f} sec")
 
         return SCIResult(energy, sci_state, orbital_occupancies=occupancies)
 
