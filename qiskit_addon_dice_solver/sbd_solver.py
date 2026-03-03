@@ -352,25 +352,37 @@ def _read_sbd_outputs(
     
     occupancies = (occupancies_a, occupancies_b)
 
-    # Read carryover determinants
+    # Read input determinants (full set used for diagonalization)
+    input_strings_a = _read_determinant_file(sbd_dir / "alphadets.txt", norb)
+    input_strings_b = _read_determinant_file(sbd_dir / "betadets.txt", norb)
+    
+    # Read carryover determinants (subset selected by SBD)
     co_strings_a = _read_determinant_file(carryover_adet_file, norb)
     co_strings_b = _read_determinant_file(carryover_bdet_file, norb)
 
-    # Read wavefunction coefficients if available
-    amplitudes = None
-    if wf_dump_file.exists():
-        amplitudes = _read_wavefunction_file(wf_dump_file, len(co_strings_a), len(co_strings_b))
-
-    # If no wavefunction file, create uniform amplitudes
-    if amplitudes is None:
-        n_a = len(co_strings_a)
-        n_b = len(co_strings_b)
-        if n_a > 0 and n_b > 0:
-            amplitudes = np.ones((n_a, n_b)) / np.sqrt(n_a * n_b)
-        else:
-            amplitudes = np.array([[1.0]])
-            co_strings_a = np.array([0])
-            co_strings_b = np.array([0])
+    # Read wavefunction coefficients - required for SBD
+    if not wf_dump_file.exists():
+        raise FileNotFoundError(
+            f"Wavefunction file not found: {wf_dump_file}. "
+            "SBD should have written this file during diagonalization."
+        )
+    
+    # SBD writes the full wavefunction for all input determinants
+    # We need to extract only the carryover subset
+    full_amplitudes = _read_wavefunction_file(
+        wf_dump_file, len(input_strings_a), len(input_strings_b)
+    )
+    
+    if full_amplitudes is None:
+        raise ValueError(
+            f"Failed to read wavefunction from {wf_dump_file}. "
+            f"Expected {len(input_strings_a)} x {len(input_strings_b)} coefficients."
+        )
+    
+    # Extract carryover subset by finding indices of carryover dets in input dets
+    amplitudes = _extract_carryover_amplitudes(
+        full_amplitudes, input_strings_a, input_strings_b, co_strings_a, co_strings_b
+    )
 
     # Create SCIState
     sci_state = SCIState(
@@ -399,6 +411,37 @@ def _read_determinant_file(filepath: Path, norb: int) -> np.ndarray:
                 ci_strings.append(ci_str)
 
     return np.array(ci_strings, dtype=np.int64)
+
+
+def _extract_carryover_amplitudes(
+    full_amplitudes: np.ndarray,
+    input_strings_a: np.ndarray,
+    input_strings_b: np.ndarray,
+    co_strings_a: np.ndarray,
+    co_strings_b: np.ndarray,
+) -> np.ndarray:
+    """Extract carryover subset from full wavefunction matrix.
+    
+    Args:
+        full_amplitudes: Full wavefunction matrix (n_input_a x n_input_b)
+        input_strings_a: All input alpha determinants
+        input_strings_b: All input beta determinants
+        co_strings_a: Carryover alpha determinants (subset)
+        co_strings_b: Carryover beta determinants (subset)
+    
+    Returns:
+        Carryover amplitudes matrix (n_co_a x n_co_b)
+    """
+    # Create mapping from determinant to index
+    input_map_a = {det: i for i, det in enumerate(input_strings_a)}
+    input_map_b = {det: i for i, det in enumerate(input_strings_b)}
+    
+    # Find indices of carryover dets in input dets
+    co_indices_a = [input_map_a[det] for det in co_strings_a]
+    co_indices_b = [input_map_b[det] for det in co_strings_b]
+    
+    # Extract subset using advanced indexing
+    return full_amplitudes[np.ix_(co_indices_a, co_indices_b)]
 
 
 def _read_wavefunction_file(
